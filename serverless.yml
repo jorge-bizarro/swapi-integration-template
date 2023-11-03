@@ -1,0 +1,40 @@
+service: swapi-integration
+frameworkVersion: '3'
+
+package:
+  individually: true
+
+plugins:
+  - serverless-esbuild
+  - serverless-offline
+
+provider:
+  name: aws
+  stage: dev
+  region: us-east-1
+  runtime: nodejs18.x
+  tracing:
+    apiGateway: true
+    lambda: true
+  environment:
+    NODE_OPTIONS: '--enable-source-maps'
+
+custom:
+  esbuild:
+    bundle: true
+    minify: true
+    sourcemap: true
+    keepNames: true
+    watch:
+      pattern: src/**/*.ts
+    exclude:
+      - 'aws-sdk'
+
+functions:
+  healthCheck:
+    handler: src/handlers/healthCheck.handler
+    events:
+      - http:
+          path: /healthCheck
+          method: GET
+          cors: true
