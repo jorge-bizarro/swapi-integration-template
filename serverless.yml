@@ -32,7 +32,7 @@ custom:
 
 functions:
   healthCheck:
-    handler: src/handlers/healthCheck.handler
+    handler: src/handlers/healthCheck.healthCheckHandler
     events:
       - http:
           path: /healthCheck
