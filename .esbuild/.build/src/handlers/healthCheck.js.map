@@ -1,7 +1,0 @@
-{
-  "version": 3,
-  "sources": ["../../../../src/handlers/healthCheck.ts"],
-  "sourcesContent": ["import fs from 'node:fs/promises';\r\nimport path from 'node:path';\r\n\r\nexport async function handler() {\r\n  try {\r\n    const content = await fs.readFile(path.join(process.cwd(), 'package.json'), 'utf8');\r\n    const packageJson = JSON.parse(content);\r\n\r\n    return {\r\n      statusCode: 200,\r\n      body: JSON.stringify({\r\n        status: 'healthy',\r\n        version: packageJson.version\r\n      }),\r\n    };\r\n  } catch (error) {\r\n    return {\r\n      statusCode: 500,\r\n      body: JSON.stringify({\r\n        status: 'error',\r\n        error: error.message,\r\n      })\r\n    }\r\n  }\r\n}\r\n"],
-  "mappings": "gmBAAA,IAAAA,EAAA,GAAAC,EAAAD,EAAA,aAAAE,IAAA,eAAAC,EAAAH,GAAA,IAAAI,EAAe,+BACfC,EAAiB,wBAEjB,eAAsBC,GAAU,CAC9B,GAAI,CACF,IAAMC,EAAU,MAAM,EAAAC,QAAG,SAAS,EAAAC,QAAK,KAAK,QAAQ,IAAI,EAAG,cAAc,EAAG,MAAM,EAC5EC,EAAc,KAAK,MAAMH,CAAO,EAEtC,MAAO,CACL,WAAY,IACZ,KAAM,KAAK,UAAU,CACnB,OAAQ,UACR,QAASG,EAAY,OACvB,CAAC,CACH,CACF,OAASC,EAAO,CACd,MAAO,CACL,WAAY,IACZ,KAAM,KAAK,UAAU,CACnB,OAAQ,QACR,MAAOA,EAAM,OACf,CAAC,CACH,CACF,CACF,CArBsBC,EAAAN,EAAA",
-  "names": ["healthCheck_exports", "__export", "handler", "__toCommonJS", "import_promises", "import_node_path", "handler", "content", "fs", "path", "packageJson", "error", "__name"]
-}
