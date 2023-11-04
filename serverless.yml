@@ -11,12 +11,9 @@ plugins:
 
 provider:
   name: aws
-  stage: dev
-  region: us-west-1
+  stage: ${opt:stage, 'dev'}
+  region: us-east-1
   runtime: nodejs18.x
-  tracing:
-    apiGateway: true
-    lambda: true
   iam:
     role:
       statements:
@@ -31,9 +28,11 @@ provider:
     NODE_OPTIONS: '--enable-source-maps'
     STAGE: ${self:provider.stage}
     PERSONS_TABLE_NAME: ${self:custom.personsTableName}
+    SWAPI_PERSON_ID_GSI_NAME: ${self:custom.swapiPersonIdGsiName}
 
 custom:
   personsTableName: persons-table-${self:provider.stage}
+  swapiPersonIdGsiName: swapiPersonId-GSI-${self:provider.stage}
   serverless-dynamodb:
     stages:
       - dev
@@ -69,20 +68,27 @@ functions:
           path: /healthCheck
           method: get
           cors: true
-  getAllPersons:
-    handler: src/handlers/getAllPersons.getAllPersonsHandler
-    events:
-      - http:
-          path: /person
-          method: get
-          cors: true
-  savePerson:
-    handler: src/handlers/savePerson.savePersonHandler
-    events:
-      - http:
-          path: /person
-          method: post
-          cors: true
+  # getAllPersons:
+  #   handler: src/handlers/getAllPersons.getAllPersonsHandler
+  #   events:
+  #     - http:
+  #         path: /person
+  #         method: get
+  #         cors: true
+  # savePerson:
+  #   handler: src/handlers/savePerson.savePersonHandler
+  #   events:
+  #     - http:
+  #         path: /person
+  #         method: post
+  #         cors: true
+  # getPersonByIdFromSwapi:
+  #   handler: src/handlers/getPersonBy.getPersonByIdFromSwapiHandler
+  #   events:
+  #     - http:
+  #         path: /swapi/person/{id}
+  #         method: get
+  #         cors: true
 
 resources:
   Resources:
@@ -95,9 +101,15 @@ resources:
         AttributeDefinitions:
           - AttributeName: uuid
             AttributeType: S
+          - AttributeName: swapiPersonId
+            AttributeType: S
         KeySchema:
           - AttributeName: uuid
             KeyType: HASH
-        ProvisionedThroughput:
-          ReadCapacityUnits: 1
-          WriteCapacityUnits: 1
+        GlobalSecondaryIndexes:
+          - IndexName: ${self:custom.swapiPersonIdGsiName}
+            KeySchema:
+              - AttributeName: swapiPersonId
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL

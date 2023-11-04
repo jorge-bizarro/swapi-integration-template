@@ -1,6 +1,6 @@
 import { APIGatewayProxyEvent, APIGatewayProxyHandler, APIGatewayProxyResult } from "aws-lambda";
 import { constants } from "node:http2";
-import { PersonService } from "../services/person";
+import { PersonService } from "../services/personService";
 
 const { HTTP_STATUS_INTERNAL_SERVER_ERROR, HTTP_STATUS_CREATED } = constants;
 
