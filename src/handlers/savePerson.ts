@@ -8,13 +8,12 @@ export const savePersonHandler: APIGatewayProxyHandler = async (event: APIGatewa
   try {
     const personService = new PersonService();
     const newPerson = JSON.parse(event.body as string);
-    const result = await personService.savePerson(newPerson);
+    await personService.savePerson(newPerson);
 
     return {
       statusCode: HTTP_STATUS_CREATED,
       body: JSON.stringify({
         status: 'success',
-        data: result,
       }),
     };
   } catch (error) {

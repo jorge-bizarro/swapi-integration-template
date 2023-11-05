@@ -14,6 +14,15 @@ provider:
   stage: ${opt:stage, 'dev'}
   region: us-east-1
   runtime: nodejs18.x
+  tracing:
+    apiGateway: true
+    lambda: true
+  vpc:
+    securityGroupIds:
+      - sg-023d52c24112c89c7
+    subnetIds:
+      - subnet-00f7f9d374dc2c6af
+      - subnet-07caa174164b2c6a8
   iam:
     role:
       statements:
@@ -29,6 +38,7 @@ provider:
     STAGE: ${self:provider.stage}
     PERSONS_TABLE_NAME: ${self:custom.personsTableName}
     SWAPI_PERSON_ID_GSI_NAME: ${self:custom.swapiPersonIdGsiName}
+    SWAPI_ENDPOINT_URL: ${env:SWAPI_ENDPOINT_URL, 'https://swapi.dev/api'}
 
 custom:
   personsTableName: persons-table-${self:provider.stage}
@@ -44,8 +54,6 @@ custom:
       migrate: true
       seed: true
       convertEmptyValues: true
-  serverless-offline:
-    resourceRoutes: true
   esbuild:
     bundle: true
     minify: true
@@ -57,7 +65,7 @@ custom:
 functions:
   healthCheck:
     handler: src/handlers/healthCheck.healthCheckHandler
-    name: health-check
+    description: Function to return version of stack
     memorySize: 128
     timeout: 5
     package:
@@ -68,27 +76,28 @@ functions:
           path: /healthCheck
           method: get
           cors: true
-  # getAllPersons:
-  #   handler: src/handlers/getAllPersons.getAllPersonsHandler
-  #   events:
-  #     - http:
-  #         path: /person
-  #         method: get
-  #         cors: true
-  # savePerson:
-  #   handler: src/handlers/savePerson.savePersonHandler
-  #   events:
-  #     - http:
-  #         path: /person
-  #         method: post
-  #         cors: true
-  # getPersonByIdFromSwapi:
-  #   handler: src/handlers/getPersonBy.getPersonByIdFromSwapiHandler
-  #   events:
-  #     - http:
-  #         path: /swapi/person/{id}
-  #         method: get
-  #         cors: true
+  getAllPersons:
+    handler: src/handlers/getAllPersons.getAllPersonsHandler
+    timeout: 30
+    events:
+      - http:
+          path: /person
+          method: get
+          cors: true
+  savePerson:
+    handler: src/handlers/savePerson.savePersonHandler
+    events:
+      - http:
+          path: /person
+          method: post
+          cors: true
+  getPersonByIdFromSwapi:
+    handler: src/handlers/getPersonBy.getPersonByIdFromSwapiHandler
+    events:
+      - http:
+          path: /swapi/person/{id}
+          method: get
+          cors: true
 
 resources:
   Resources:

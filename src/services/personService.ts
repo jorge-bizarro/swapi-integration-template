@@ -1,7 +1,8 @@
 import { PutItemCommand, QueryCommand, ScanCommand } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { randomUUID } from "node:crypto";
-import dynamoDbClient from "../repository/dynamodb";
+import { dynamoDbClient } from "../repository/dynamodb";
+import { translateObjectKeys } from "../utils/translate";
 
 const { PERSONS_TABLE_NAME, SWAPI_PERSON_ID_GSI_NAME } = process.env;
 
@@ -10,23 +11,26 @@ export class PersonService {
   }
 
   async getAllPersons() {
-    const result = await dynamoDbClient.send(new ScanCommand({
-      TableName: PERSONS_TABLE_NAME,
-    }));
-
-    return result.Items?.map(item => unmarshall(item)) || [];
+    try {
+      const command = new ScanCommand({
+        TableName: PERSONS_TABLE_NAME
+      });
+      const result = await dynamoDbClient.send(command);
+      return result.Items?.map(item => unmarshall(item)).map(item => translateObjectKeys(item))  || [];
+    } catch (error) {
+      console.log('error ->', error);
+      throw new Error('Error getting persons')
+    }
   }
 
-  async savePerson(newPerson: any) {
+  async savePerson(newPerson: any): Promise<void> {
     newPerson.uuid = randomUUID();
     newPerson.swapiPersonId ??= randomUUID();
 
-    const result = await dynamoDbClient.send(new PutItemCommand({
+    await dynamoDbClient.send(new PutItemCommand({
       TableName: PERSONS_TABLE_NAME,
       Item: marshall(newPerson || {})
     }));
-
-    return result;
   }
 
   async getPersonBySwapiId(swapiPersonId: string) {

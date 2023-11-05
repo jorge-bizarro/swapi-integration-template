@@ -1,14 +1,13 @@
-import { APIGatewayProxyEvent, APIGatewayProxyHandler, APIGatewayProxyResult } from "aws-lambda";
+import { APIGatewayProxyHandler, APIGatewayProxyResult } from "aws-lambda";
 import { constants } from "node:http2";
 import { PersonService } from "../services/personService";
 
 const { HTTP_STATUS_INTERNAL_SERVER_ERROR, HTTP_STATUS_OK } = constants;
 
-export const getAllPersonsHandler: APIGatewayProxyHandler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+export const getAllPersonsHandler: APIGatewayProxyHandler = async (): Promise<APIGatewayProxyResult> => {
   try {
     const personService = new PersonService();
     const persons = await personService.getAllPersons();
-
     return {
       statusCode: HTTP_STATUS_OK,
       body: JSON.stringify({
