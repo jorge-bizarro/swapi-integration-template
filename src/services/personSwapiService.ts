@@ -1,4 +1,5 @@
 import axios from "axios";
+import { dynamoDBClient } from "../repository/dynamodb";
 import { translateObjectKeys } from "../utils/translate";
 import { PersonService } from "./personService";
 
@@ -8,7 +9,7 @@ export class PersonSWAPIService {
   private personService: PersonService;
 
   constructor() {
-    this.personService = new PersonService();
+    this.personService = new PersonService(dynamoDBClient);
   }
 
   async getPersonById(swapiPersonId: string) {

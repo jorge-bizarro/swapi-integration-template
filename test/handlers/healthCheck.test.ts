@@ -11,7 +11,7 @@ describe('HealthCheck handler', () => {
     expect(response.statusCode).toBe(200);
     expect(response.body).toEqual(JSON.stringify({
       status: 'healthy',
-      version: packageJson.version,
+      data: packageJson.version,
     }));
   });
 });
