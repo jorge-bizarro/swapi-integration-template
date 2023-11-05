@@ -10,7 +10,7 @@ export async function healthCheckHandler() {
       statusCode: 200,
       body: JSON.stringify({
         status: 'healthy',
-        version: packageJson.version
+        data: packageJson.version
       }),
     };
   } catch (error) {

@@ -5,6 +5,7 @@ package:
   individually: true
 
 plugins:
+  - serverless-auto-swagger
   - serverless-esbuild
   - serverless-dynamodb
   - serverless-offline
@@ -61,6 +62,10 @@ custom:
     keepNames: true
     watch:
       pattern: src/**/*.ts
+  autoswagger:
+    title: ${self:service}
+    useStage: true
+    basePath: /${self:provider.stage}
 
 functions:
   healthCheck:
@@ -76,6 +81,15 @@ functions:
           path: /healthCheck
           method: get
           cors: true
+          swaggerTags:
+            - Health
+          responseData:
+            200:
+              description: Success retrieving package version
+              bodyType: IBaseSuccessResponse
+            500:
+              description: Error occurred while retrieving package version
+              bodyType: IBaseFailureResponse
   getAllPersons:
     handler: src/handlers/getAllPersons.getAllPersonsHandler
     timeout: 30
@@ -84,6 +98,15 @@ functions:
           path: /person
           method: get
           cors: true
+          swaggerTags:
+            - Person
+          responseData:
+            200:
+              description: Success retrieving data for all persons
+              bodyType: ISuccessGetAllPersonsResponse
+            500:
+              description: Error occurred while retrieving data
+              bodyType: IBaseFailureResponse
   savePerson:
     handler: src/handlers/savePerson.savePersonHandler
     events:
@@ -91,6 +114,15 @@ functions:
           path: /person
           method: post
           cors: true
+          swaggerTags:
+            - Person
+          responseData:
+            201:
+              description: Success information saved
+              bodyType: ISuccessSavePersonResponse
+            500:
+              description: Error occurred while saving information
+              bodyType: IBaseFailureResponse
   getPersonByIdFromSwapi:
     handler: src/handlers/getPersonBy.getPersonByIdFromSwapiHandler
     events:
@@ -98,6 +130,15 @@ functions:
           path: /swapi/person/{id}
           method: get
           cors: true
+          swaggerTags:
+            - Person StarWars
+          responseData:
+            200:
+              description: Success retrieving person information
+              bodyType: ISuccessGetSwapiPersonResponse
+            500:
+              description: Error occurred while retrieving person information
+              bodyType: IBaseFailureResponse
 
 resources:
   Resources:
