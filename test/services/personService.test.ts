@@ -1,14 +1,26 @@
-import { DynamoDBClient, ScanCommand, } from "@aws-sdk/client-dynamodb";
-import { PutCommand } from "@aws-sdk/lib-dynamodb";
+import { DynamoDBClient, PutItemCommand, QueryCommand, ScanCommand } from "@aws-sdk/client-dynamodb";
 import { marshall } from "@aws-sdk/util-dynamodb";
-import { mockClient } from "aws-sdk-client-mock";
+import { AwsClientStub, mockClient } from "aws-sdk-client-mock";
+import 'aws-sdk-client-mock-jest';
 import { randomUUID } from "node:crypto";
 import { PersonService } from "../../src/services/personService";
 
-const ddbMock = mockClient(DynamoDBClient);
+function createPersonWithId<T extends Record<string, any>>(personBase: T): T & { uuid: string, swapiPersonId: string } {
+  const person = structuredClone(personBase);
+  const personUuid = randomUUID();
+  const swapiPersonId = randomUUID();
 
-describe("Person Service", () => {
-  let personService: PersonService;
+  Reflect.set(person, 'uuid', personUuid);
+  Reflect.set(person, 'swapiPersonId', swapiPersonId);
+
+  return person as T & { uuid: string, swapiPersonId: string };
+}
+
+describe('Person service', () => {
+
+  const dynamoDBMock: AwsClientStub<DynamoDBClient> = mockClient(DynamoDBClient);
+  const dynamoDBClient: DynamoDBClient = new DynamoDBClient({});
+  const personService: PersonService = new PersonService(dynamoDBClient);
 
   const person_1 = {
     "nombre": "Luke Skywalker",
@@ -68,78 +80,89 @@ describe("Person Service", () => {
     "url": "https://swapi.dev/api/people/2/",
   }
 
-  // it('should create an item', async () => {
-  //   const mockSend = jest.fn();
-  //   dynamoDBClient.send = mockSend;
-
-  //   const newPerson = structuredClone(person_1);
-
-  //   Reflect.set(newPerson, 'uuid', randomUUID());
-  //   Reflect.set(newPerson, 'swapiPersonId', randomUUID());
-
-  //   const expectedPutItemCommand = new PutItemCommand({
-  //     TableName: undefined,
-  //     Item: marshall(newPerson),
-  //   });
-
-  //   await personService.savePerson(newPerson);
-
-  //   expect(mockSend).toHaveBeenCalled();
-
-  //   console.log(expectedPutItemCommand);
-  //   console.log(mockSend.mock.calls[0][0]);
-  //   console.log('is equaul', expectedPutItemCommand == mockSend.mock.calls[0][0]);
-
-  //   expect(mockSend).toHaveBeenCalledWith(mockSend.mock.calls[0][0]);
-  // });
-
   beforeEach(() => {
-    personService = new PersonService(new DynamoDBClient());
-    ddbMock.reset();
-  });
+    dynamoDBMock.reset();
+  })
 
-  it("should return all persons successfully", async () => {
-    const person1 = structuredClone(person_1);
-    const person2 = structuredClone(person_2);
-
-    Reflect.set(person1, 'uuid', randomUUID());
-    Reflect.set(person1, 'swapiPersonId', randomUUID());
-    Reflect.set(person2, 'uuid', randomUUID());
-    Reflect.set(person2, 'swapiPersonId', randomUUID());
-
-    const scanResponse = {
+  it('should retrieve all persons from the database', async () => {
+    dynamoDBMock.on(ScanCommand).resolves({
       Items: [
-        person1,
-        person2,
-      ],
-    }
-
-    // DynamoDBClient.send.mockResolvedValue(scanResponse);
-
-    ddbMock.on(ScanCommand)
-      .resolves({
-        Items: [
-          marshall(person_1),
-          marshall(person_2)
-        ],
+        marshall(person_1),
+        marshall(person_2)
+      ]
     });
 
     const result = await personService.getAllPersons();
 
-    expect(result).toEqual([person_1, person_2]);
+    expect(dynamoDBMock).toHaveReceivedCommandTimes(ScanCommand, 1);
+    expect(result).toEqual([
+      person_1,
+      person_2
+    ]);
+  })
+
+  it('should save a new person to the database', async () => {
+    dynamoDBMock.on(PutItemCommand).resolves({});
+
+    await personService.savePerson(person_1);
+
+    expect(dynamoDBMock).toHaveReceivedCommandTimes(PutItemCommand, 1);
+  })
+
+  it('should return an empty array when no person with the given swapiPersonId is found', async () => {
+    dynamoDBMock.on(QueryCommand).resolves({
+      Items: []
+    });
+
+    const swapiPersonId = randomUUID();
+    const result = await personService.getPersonBySwapiId(swapiPersonId);
+
+    expect(dynamoDBMock).toHaveReceivedCommandTimes(QueryCommand, 1);
+    expect(result).toEqual([]);
+  })
+
+  it('should return an array with one item when one person with the given swapiPersonId is found', async () => {
+    const person = createPersonWithId(person_1);
+
+    dynamoDBMock.on(QueryCommand).resolves({
+      Items: [
+        marshall(person),
+      ]
+    });
+
+    const result = await personService.getPersonBySwapiId(person.swapiPersonId);
+
+    expect(dynamoDBMock).toHaveReceivedCommandTimes(QueryCommand, 1);
+    expect(result).toEqual([
+      person
+    ]);
   });
 
-  it("should save a new person successfully", async () => {
-    const newPerson = structuredClone(person_1);
+  it('should return an array with multiple items when multiple persons with the given swapiPersonId are found', async () => {
+    const fakePerson1 = createPersonWithId(person_1);
+    const fakePerson2 = createPersonWithId(person_2);
 
-    Reflect.set(newPerson, 'uuid', randomUUID());
-    Reflect.set(newPerson, 'swapiPersonId', randomUUID());
+    fakePerson1.swapiPersonId = randomUUID();
+    fakePerson2.swapiPersonId = randomUUID();
 
-    ddbMock.on(PutCommand).resolves({});
+    dynamoDBMock.on(QueryCommand).resolves({
+      Items: [
+        marshall(fakePerson1),
+        marshall(fakePerson2)
+      ]
+    });
 
-    await personService.savePerson(newPerson);
+    const result = await personService.getPersonBySwapiId(fakePerson1.swapiPersonId);
 
-    expect(ddbMock.send).toHaveBeenCalled();
+    expect(dynamoDBMock).toHaveReceivedCommandTimes(QueryCommand, 1);
+    expect(result).toEqual([
+      fakePerson1,
+      fakePerson2
+    ]);
   });
 
-});
+  it('should throw an error when the swapiPersonId parameter is not provided', async () => {
+    await expect(personService.getPersonBySwapiId(undefined as unknown as string)).rejects.toThrow();
+  });
+
+})

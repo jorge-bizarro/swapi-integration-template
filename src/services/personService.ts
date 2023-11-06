@@ -14,20 +14,15 @@ export class PersonService {
   }
 
   async getAllPersons() {
-    try {
-      const command = new ScanCommand({
-        TableName: PERSONS_TABLE_NAME
-      });
-      const result = await this.dynamoDBClient.send(command);
-      return result.Items?.map(item => unmarshall(item)).map(item => translateObjectKeys(item))  || [];
-    } catch (error) {
-      console.log('error ->', error);
-      throw new Error('Error getting persons')
-    }
+    const command = new ScanCommand({
+      TableName: PERSONS_TABLE_NAME
+    });
+    const result = await this.dynamoDBClient.send(command);
+    return result.Items?.map(item => unmarshall(item)).map(item => translateObjectKeys(item))  || [];
   }
 
   async savePerson(newPerson: any): Promise<void> {
-    newPerson.uuid ??= randomUUID();
+    newPerson.uuid = randomUUID();
     newPerson.swapiPersonId ??= randomUUID();
 
     await this.dynamoDBClient.send(new PutItemCommand({
