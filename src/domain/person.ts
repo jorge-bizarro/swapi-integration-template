@@ -7,4 +7,6 @@ export interface IPerson {
   eyeColor: string,
   birthYear: string,
   gender: string,
+
+  toObjectWithTranslatedKeys(): Promise<{}>;
 }

@@ -2,12 +2,13 @@ import { APIGatewayProxyResult } from "aws-lambda";
 import { constants } from "node:http2";
 import { dynamoDBClient } from "../repository/dynamodb";
 import { PersonService } from "../services/personService";
+import { SwapiService } from "../services/swapiService";
 
 const { HTTP_STATUS_INTERNAL_SERVER_ERROR, HTTP_STATUS_OK } = constants;
 
 export const getAllPersonsHandler = async (): Promise<APIGatewayProxyResult> => {
   try {
-    const personService = new PersonService(dynamoDBClient);
+    const personService = new PersonService(dynamoDBClient, new SwapiService());
     const persons = await personService.getAllPersons();
 
     return {

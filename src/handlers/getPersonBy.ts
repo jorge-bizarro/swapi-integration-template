@@ -1,14 +1,16 @@
 import { APIGatewayProxyEvent, APIGatewayProxyHandler, APIGatewayProxyResult } from "aws-lambda";
 import { constants } from "node:http2";
-import { PersonSWAPIService } from "../services/personSwapiService";
+import { dynamoDBClient } from "../repository/dynamodb";
+import { PersonService } from "../services/personService";
+import { SwapiService } from "../services/swapiService";
 
 const { HTTP_STATUS_INTERNAL_SERVER_ERROR, HTTP_STATUS_OK, HTTP_STATUS_BAD_REQUEST } = constants;
 
-export const getPersonByIdFromSwapiHandler: APIGatewayProxyHandler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+export const getOnePersonBySwapiIdHandler: APIGatewayProxyHandler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
-    const personId = event.pathParameters?.id;
+    const swapiPersonId = event.pathParameters?.id;
 
-    if (!personId) {
+    if (!swapiPersonId) {
       return {
         statusCode: HTTP_STATUS_BAD_REQUEST,
         body: JSON.stringify({
@@ -18,8 +20,8 @@ export const getPersonByIdFromSwapiHandler: APIGatewayProxyHandler = async (even
       };
     }
 
-    const personService = new PersonSWAPIService();
-    const persons = await personService.getPersonById(personId);
+    const personService = new PersonService(dynamoDBClient, new SwapiService());
+    const persons = await personService.getOnePersonBySwapiId(swapiPersonId);
 
     return {
       statusCode: HTTP_STATUS_OK,
