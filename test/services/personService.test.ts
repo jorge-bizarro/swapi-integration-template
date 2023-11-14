@@ -1,145 +1,164 @@
-import { DynamoDBClient, ScanCommand, } from "@aws-sdk/client-dynamodb";
-import { PutCommand } from "@aws-sdk/lib-dynamodb";
+import { DynamoDBClient, PutItemCommand, QueryCommand, ScanCommand } from "@aws-sdk/client-dynamodb";
 import { marshall } from "@aws-sdk/util-dynamodb";
-import { mockClient } from "aws-sdk-client-mock";
-import { randomUUID } from "node:crypto";
+import { AwsClientStub, mockClient } from "aws-sdk-client-mock";
+import 'aws-sdk-client-mock-jest';
+import axios from "axios";
 import { PersonService } from "../../src/services/personService";
+import { SwapiService } from "../../src/services/swapiService";
+import { translateObjectKeys } from "../../src/utils/translate";
 
-const ddbMock = mockClient(DynamoDBClient);
+const RANDOM_UUID = '1111-1111-1111-1111';
+let dynamoDBMock: AwsClientStub<DynamoDBClient>;
+let personService: PersonService;
 
-describe("Person Service", () => {
-  let personService: PersonService;
+jest.mock('node:crypto', () => ({
+  randomUUID: () => RANDOM_UUID
+}));
 
-  const person_1 = {
-    "nombre": "Luke Skywalker",
-    "talla": "172",
-    "peso": "77",
-    "color_cabello": "blond",
-    "color_piel": "fair",
-    "color_ojo": "blue",
-    "fecha_nacimiento": "19BBY",
-    "genero": "male",
-    "planeta_origen": "https://swapi.dev/api/planets/1/",
-    "peliculas": [
-        "https://swapi.dev/api/films/1/",
-        "https://swapi.dev/api/films/2/",
-        "https://swapi.dev/api/films/3/",
-        "https://swapi.dev/api/films/6/"
-    ],
-    "especies": [],
-    "vehiculos": [
-        "https://swapi.dev/api/vehicles/14/",
-        "https://swapi.dev/api/vehicles/30/"
-    ],
-    "naves": [
-        "https://swapi.dev/api/starships/12/",
-        "https://swapi.dev/api/starships/22/"
-    ],
-    "fecha_creacion": "2014-12-09T13:50:51.644000Z",
-    "fecha_edicion": "2014-12-20T21:17:56.891000Z",
-    "url": "https://swapi.dev/api/people/1/",
-  }
+const personLuke = {
+  name: 'Luke Skywalker',
+  height: '172',
+  mass: '77',
+  hair_color: 'blond',
+  skin_color: 'fair',
+  eye_color: 'blue',
+  birth_year: '19BBY',
+  gender: 'male',
+  homeworld: 'https://swapi.dev/api/planets/1/',
+  films: [
+    'https://swapi.dev/api/films/1/',
+    'https://swapi.dev/api/films/2/',
+    'https://swapi.dev/api/films/3/',
+    'https://swapi.dev/api/films/6/'
+  ],
+  species: [],
+  vehicles: [
+    'https://swapi.dev/api/vehicles/14/',
+    'https://swapi.dev/api/vehicles/30/'
+  ],
+  starships: [
+    'https://swapi.dev/api/starships/12/',
+    'https://swapi.dev/api/starships/22/'
+  ],
+  created: '2014-12-09T13:50:51.644000Z',
+  edited: '2014-12-20T21:17:56.891000Z',
+  url: 'https://swapi.dev/api/people/1/'
+}
 
-  const person_2 = {
-    "nombre": "C-3PO",
-    "talla": "167",
-    "peso": "75",
-    "color_cabello": "n/a",
-    "color_piel": "gold",
-    "color_ojo": "yellow",
-    "fecha_nacimiento": "112BBY",
-    "genero": "n/a",
-    "planeta_origen": "https://swapi.dev/api/planets/1/",
-    "peliculas": [
-        "https://swapi.dev/api/films/1/",
-        "https://swapi.dev/api/films/2/",
-        "https://swapi.dev/api/films/3/",
-        "https://swapi.dev/api/films/4/",
-        "https://swapi.dev/api/films/5/",
-        "https://swapi.dev/api/films/6/"
-    ],
-    "especies": [
-        "https://swapi.dev/api/species/2/"
-    ],
-    "vehiculos": [],
-    "naves": [],
-    "fecha_creacion": "2014-12-10T15:10:51.357000Z",
-    "fecha_edicion": "2014-12-20T21:17:50.309000Z",
-    "url": "https://swapi.dev/api/people/2/",
-  }
+describe('Person service', () => {
 
-  // it('should create an item', async () => {
-  //   const mockSend = jest.fn();
-  //   dynamoDBClient.send = mockSend;
+  beforeAll(() => {
+    const dynamoDBClient: DynamoDBClient = new DynamoDBClient();
+    const swapiService: SwapiService = new SwapiService();
 
-  //   const newPerson = structuredClone(person_1);
-
-  //   Reflect.set(newPerson, 'uuid', randomUUID());
-  //   Reflect.set(newPerson, 'swapiPersonId', randomUUID());
-
-  //   const expectedPutItemCommand = new PutItemCommand({
-  //     TableName: undefined,
-  //     Item: marshall(newPerson),
-  //   });
-
-  //   await personService.savePerson(newPerson);
-
-  //   expect(mockSend).toHaveBeenCalled();
-
-  //   console.log(expectedPutItemCommand);
-  //   console.log(mockSend.mock.calls[0][0]);
-  //   console.log('is equaul', expectedPutItemCommand == mockSend.mock.calls[0][0]);
-
-  //   expect(mockSend).toHaveBeenCalledWith(mockSend.mock.calls[0][0]);
-  // });
+    personService = new PersonService(dynamoDBClient, swapiService);
+    dynamoDBMock = mockClient(DynamoDBClient);
+  })
 
   beforeEach(() => {
-    personService = new PersonService(new DynamoDBClient());
-    ddbMock.reset();
-  });
+    dynamoDBMock.reset();
+  })
 
-  it("should return all persons successfully", async () => {
-    const person1 = structuredClone(person_1);
-    const person2 = structuredClone(person_2);
+  it('should return all persons from database when getAllPersons is called', async () => {
+    const mockItems = [structuredClone(personLuke)];
 
-    Reflect.set(person1, 'uuid', randomUUID());
-    Reflect.set(person1, 'swapiPersonId', randomUUID());
-    Reflect.set(person2, 'uuid', randomUUID());
-    Reflect.set(person2, 'swapiPersonId', randomUUID());
-
-    const scanResponse = {
-      Items: [
-        person1,
-        person2,
-      ],
-    }
-
-    // DynamoDBClient.send.mockResolvedValue(scanResponse);
-
-    ddbMock.on(ScanCommand)
-      .resolves({
-        Items: [
-          marshall(person_1),
-          marshall(person_2)
-        ],
+    dynamoDBMock.on(ScanCommand).resolves({
+      Items: mockItems.map(item => marshall(item))
     });
 
     const result = await personService.getAllPersons();
 
-    expect(result).toEqual([person_1, person_2]);
+    expect(dynamoDBMock).toHaveReceivedCommand(ScanCommand);
+    expect(dynamoDBMock).toHaveReceivedCommandTimes(ScanCommand, 1);
+    expect(dynamoDBMock).toHaveReceivedCommandWith(ScanCommand, {
+      TableName: process.env.PERSONS_TABLE_NAME
+    });
+    expect(result).toEqual(mockItems.map(item => translateObjectKeys(item)));
   });
 
-  it("should save a new person successfully", async () => {
-    const newPerson = structuredClone(person_1);
+  it('should save a new person to the database when savePerson is called', async () => {
+    const personToSave = structuredClone(personLuke);
 
-    Reflect.set(newPerson, 'uuid', randomUUID());
-    Reflect.set(newPerson, 'swapiPersonId', randomUUID());
+    dynamoDBMock.on(PutItemCommand).resolves({});
 
-    ddbMock.on(PutCommand).resolves({});
+    const result = await personService.savePerson(personToSave);
 
-    await personService.savePerson(newPerson);
+    expect(dynamoDBMock).toHaveReceivedCommand(PutItemCommand);
+    expect(dynamoDBMock).toHaveReceivedCommandTimes(PutItemCommand, 1);
+    expect(dynamoDBMock).toHaveReceivedCommandWith(PutItemCommand, {
+      TableName: process.env.PERSONS_TABLE_NAME,
+      Item: marshall(personToSave),
+    });
+    expect(result).toEqual(undefined);
+  })
 
-    expect(ddbMock.send).toHaveBeenCalled();
+  it('should create a person in the database when does not exist', async () => {
+    const swapiPersonId = '10'
+
+    dynamoDBMock.on(QueryCommand).resolves({
+      Items: []
+    })
+
+    dynamoDBMock.on(PutItemCommand).resolves({});
+
+    jest.spyOn(axios, 'get').mockResolvedValueOnce({
+      data: structuredClone(personLuke),
+    });
+
+    const result = await personService.getOnePersonBySwapiId(swapiPersonId);
+
+    expect(dynamoDBMock).toHaveReceivedCommand(QueryCommand);
+    expect(dynamoDBMock).toHaveReceivedCommandTimes(QueryCommand, 1);
+    expect(dynamoDBMock).toHaveReceivedCommandWith(QueryCommand, {
+      TableName: process.env.PERSONS_TABLE_NAME,
+      IndexName: process.env.SWAPI_PERSON_ID_GSI_NAME,
+      KeyConditionExpression: "swapiPersonId = :swapiPersonId",
+      ExpressionAttributeValues: marshall({ ':swapiPersonId': swapiPersonId })
+    });
+    expect(dynamoDBMock).toHaveReceivedCommand(PutItemCommand);
+    expect(dynamoDBMock).toHaveReceivedCommandTimes(PutItemCommand, 1);
+    expect(dynamoDBMock).toHaveReceivedCommandWith(PutItemCommand, {
+      TableName: process.env.PERSONS_TABLE_NAME,
+      Item: marshall({
+        ...personLuke,
+        uuid: RANDOM_UUID,
+        swapiPersonId,
+      }),
+    });
+    expect(result).toEqual(translateObjectKeys({
+      ...personLuke,
+      swapiPersonId
+    }));
+  })
+
+  it('should return person from database if exists', async () => {
+    const swapiPersonId = '10'
+
+    dynamoDBMock.on(QueryCommand).resolves({
+      Items: [
+        marshall({
+          ...personLuke,
+          uuid: RANDOM_UUID,
+          swapiPersonId
+        })
+      ]
+    })
+
+    const result = await personService.getOnePersonBySwapiId(swapiPersonId);
+
+    expect(dynamoDBMock).toHaveReceivedCommandTimes(QueryCommand, 1);
+    expect(dynamoDBMock).toHaveReceivedCommandWith(QueryCommand, {
+      TableName: process.env.PERSONS_TABLE_NAME,
+      IndexName: process.env.SWAPI_PERSON_ID_GSI_NAME,
+      KeyConditionExpression: "swapiPersonId = :swapiPersonId",
+      ExpressionAttributeValues: marshall({ ':swapiPersonId': swapiPersonId })
+    });
+    expect(dynamoDBMock).toHaveReceivedCommandTimes(PutItemCommand, 0);
+    expect(result).toEqual(translateObjectKeys({
+      ...personLuke,
+      uuid: RANDOM_UUID,
+      swapiPersonId
+    }));
   });
 
-});
+})
